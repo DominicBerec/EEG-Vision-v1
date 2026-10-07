@@ -1,0 +1,11 @@
+# EEGVision v1: PhysioNet/MNE motor-imagery replay demo
+fastapi>=0.100.0
+uvicorn>=0.22.0
+websockets>=11.0
+numpy>=1.24.0
+mne>=1.6.0
+scikit-learn>=1.3.0
+
+# Desktop app build (optional)
+pywebview>=4.0
+pyinstaller>=6.0

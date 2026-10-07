@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EEGVision - Motor Imagery Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a1228;
+            --bg-panel: #0f1c3d;
+            --bg-input: #0a1228;
+            --border: #1e2c4f;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --accent: #2563eb;
+            --accent-bright: #3b82f6;
+            --accent-teal: #06b6d4;
+            --accent-green: #10b981;
+            --font-heading: 'Fraunces', 'Georgia', serif;
+            --mono: 'JetBrains Mono', monospace;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        .app {
+            display: grid;
+            grid-template-rows: 56px 1fr;
+            height: 100vh;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 1.05rem;
+            letter-spacing: -0.01em;
+        }
+
+        .brand-mark {
+            display: block;
+            height: 28px;
+            width: auto;
+            flex-shrink: 0;
+        }
+
+        .brand-name span {
+            background: linear-gradient(120deg, var(--accent-bright), var(--accent-green));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        nav {
+            display: flex;
+            gap: 1.8rem;
+        }
+
+        nav a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--text);
+        }
+
+        /* Layout */
+        .layout {
+            display: grid;
+            grid-template-columns: 290px 1fr 290px;
+            height: 100%;
+            min-height: 0;
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            padding: 1.25rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .panel.right {
+            border-right: none;
+            border-left: 1px solid var(--border);
+        }
+
+        .panel-section h3 {
+            font-size: 0.7rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .field {
+            margin-bottom: 0.9rem;
+        }
+
+        .field label {
+            display: block;
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            margin-bottom: 0.35rem;
+        }
+
+        select, button {
+            width: 100%;
+            font-family: inherit;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text);
+            padding: 0.55rem 0.7rem;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        select:hover, select:focus {
+            border-color: var(--accent);
+            outline: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-bright);
+        }
+
+        .btn-primary.playing {
+            background: #ef4444;
+            border-color: #ef4444;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            font-family: var(--mono);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            transition: background 0.2s ease;
+        }
+
+        .status-dot.live {
+            background: var(--accent-green);
+            box-shadow: 0 0 6px var(--accent-green);
+        }
+
+        /* Legend */
+        .legend-bar {
+            height: 12px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #2255ee, #94a3b8, #ee3322);
+            margin-bottom: 0.4rem;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            font-family: var(--mono);
+        }
+
+        /* Classification card */
+        .classification-card {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .class-label {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent-bright);
+            text-transform: capitalize;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.5px;
+        }
+
+        .class-confidence {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .class-confidence b {
+            color: var(--accent-green);
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--mono);
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+
+        .metric-row span:first-child {
+            color: var(--text-dim);
+        }
+
+        /* Viewport */
+        .viewport {
+            position: relative;
+            min-width: 0;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        .viewport-overlay {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.6rem 0.9rem;
+            backdrop-filter: blur(6px);
+        }
+
+        .viewport-overlay div {
+            margin-bottom: 0.2rem;
+        }
+
+        .viewport-overlay div:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Scrollbars */
+        .panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .panel::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div class="brand">
+                <span class="brand-name">EEG<span class="accent">Vision</span></span>
+            </div>
+        </header>
+
+        <div class="layout">
+            <!-- Left Panel: Session Controls -->
+            <aside class="panel">
+                <div class="panel-section">
+                    <h3>Session</h3>
+                    <div class="field">
+                        <label for="subject-select">Subject</label>
+                        <select id="subject-select"></select>
+                    </div>
+                    <div class="field">
+                        <label for="event-select">Mental State</label>
+                        <select id="event-select">
+                            <option value="left_hand">Left Hand</option>
+                            <option value="right_hand">Right Hand</option>
+                            <option value="both_hands">Both Hands</option>
+                            <option value="both_feet">Both Feet</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <button id="btn-play" class="btn-primary">Start Stream</button>
+                    </div>
+                    <div class="status-row">
+                        <div class="status-dot" id="status-dot"></div>
+                        <span id="status-text">Idle</span>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>About this view</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.6;">
+                        64 electrodes mapped to the standard 10-10 EEG montage are
+                        overlaid on a 3D head model. Colors represent normalized
+                        signal amplitude, streamed live from preprocessed
+                        PhysioNet motor-imagery recordings.
+                    </p>
+                </div>
+            </aside>
+
+            <!-- Center: 3D Viewport -->
+            <main class="viewport">
+                <div id="canvas-container"></div>
+                <div class="viewport-overlay">
+                    <div>Electrodes: <span id="electrode-count">--</span></div>
+                    <div>Montage: 10-10 (64ch)</div>
+                    <div>Drag to rotate &middot; Scroll to zoom</div>
+                </div>
+            </main>
+
+            <!-- Right Panel: Amplitude + Classification -->
+            <aside class="panel right">
+                <div class="panel-section">
+                    <h3>Amplitude Scale</h3>
+                    <div class="legend-bar"></div>
+                    <div class="legend-labels">
+                        <span>Low</span>
+                        <span>Mid</span>
+                        <span>High</span>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Classification</h3>
+                    <div class="classification-card">
+                        <div class="class-label" id="class-label">--</div>
+                        <div class="class-confidence">Confidence: <b id="class-confidence">--</b></div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Model Metrics</h3>
+                    <div class="metric-row">
+                        <span>Classifier</span>
+                        <span>SVM (RBF)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span>Held-out Accuracy</span>
+                        <span id="metric-accuracy">--</span>
+                    </div>
+                    <div class="metric-row">
+                        <span>Channels</span>
+                        <span id="metric-channels">--</span>
+                    </div>
+                    <div class="metric-row">
+                        <span>Update Rate</span>
+                        <span>10 Hz</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        const IS_FILE_PROTOCOL = window.location.protocol === 'file:';
+        const API_BASE = IS_FILE_PROTOCOL ? 'http://localhost:8000' : '';
+        const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const WS_BASE = IS_FILE_PROTOCOL ? 'ws://localhost:8000' : `${WS_PROTOCOL}//${window.location.host}`;
+
+        // Head model radius - electrode positions are scaled (ELECTRODE_SCALE=800)
+        // to roughly a 75-80 unit radius shell, matching this procedural head.
+        const HEAD_RADIUS = 72;
+
+        let scene, camera, renderer, controls;
+        let electrodeGroup = null;
+        let electrodePositions = [];
+        let ws = null;
+        let playing = false;
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000);
+            camera.position.set(0, 40, 220);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.minDistance = 100;
+            controls.maxDistance = 500;
+
+            scene.add(new THREE.AmbientLight(0x8899aa, 0.8));
+            const key = new THREE.DirectionalLight(0xffffff, 0.6);
+            key.position.set(150, 200, 150);
+            scene.add(key);
+            const fill = new THREE.DirectionalLight(0x3b82f6, 0.3);
+            fill.position.set(-150, -50, -150);
+            scene.add(fill);
+
+            buildHead();
+
+            window.addEventListener('resize', onResize);
+            animate();
+        }
+
+        function buildHead() {
+            // Procedural ellipsoid substrate representing the head/brain volume
+            const geometry = new THREE.SphereGeometry(HEAD_RADIUS, 48, 36);
+            geometry.scale(1.0, 1.05, 1.15);
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x1e293b,
+                transparent: true,
+                opacity: 0.35,
+                shininess: 20,
+                side: THREE.DoubleSide,
+            });
+            const head = new THREE.Mesh(geometry, material);
+            scene.add(head);
+
+            const wireframe = new THREE.Mesh(
+                geometry,
+                new THREE.MeshBasicMaterial({ color: 0x334155, wireframe: true, transparent: true, opacity: 0.25 })
+            );
+            scene.add(wireframe);
+        }
+
+        function onResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // ===== Electrodes =====
+
+        function amplitudeToColor(t) {
+            t = Math.max(0, Math.min(1, t));
+            const low = new THREE.Color(0x2255ee);
+            const mid = new THREE.Color(0x94a3b8);
+            const high = new THREE.Color(0xee3322);
+            const c = new THREE.Color();
+            if (t < 0.5) {
+                c.lerpColors(low, mid, t / 0.5);
+            } else {
+                c.lerpColors(mid, high, (t - 0.5) / 0.5);
+            }
+            return c;
+        }
+
+        async function loadElectrodePositions() {
+            const response = await fetch(`${API_BASE}/api/eeg/electrodes`);
+            if (!response.ok) throw new Error('Failed to load electrode positions');
+            const data = await response.json();
+            electrodePositions = data.electrodes;
+
+            electrodeGroup = new THREE.Group();
+            electrodeGroup.rotation.x = -Math.PI / 2;
+
+            const geometry = new THREE.SphereGeometry(2.4, 14, 14);
+            for (const electrode of electrodePositions) {
+                const material = new THREE.MeshPhongMaterial({ color: 0x94a3b8 });
+                const sphere = new THREE.Mesh(geometry, material);
+                sphere.position.set(electrode.x, electrode.y, electrode.z);
+                sphere.userData.name = electrode.name;
+                electrodeGroup.add(sphere);
+            }
+
+            scene.add(electrodeGroup);
+            document.getElementById('electrode-count').textContent = electrodePositions.length;
+        }
+
+        function updateElectrodeColors(values) {
+            if (!electrodeGroup) return;
+            for (let i = 0; i < electrodeGroup.children.length && i < values.length; i++) {
+                const color = amplitudeToColor(values[i]);
+                electrodeGroup.children[i].material.color.copy(color);
+            }
+        }
+
+        function updateClassificationDisplay(classification) {
+            if (!classification) return;
+            document.getElementById('class-label').textContent = classification.predicted.replace(/_/g, ' ');
+            document.getElementById('class-confidence').textContent = (classification.confidence * 100).toFixed(1) + '%';
+            document.getElementById('metric-accuracy').textContent = (classification.accuracy * 100).toFixed(1) + '%';
+        }
+
+        // ===== Dropdowns =====
+
+        async function populateDropdowns() {
+            try {
+                const subjectsResp = await fetch(`${API_BASE}/api/eeg/subjects`);
+                const subjectsData = await subjectsResp.json();
+                const subjectSelect = document.getElementById('subject-select');
+                subjectSelect.innerHTML = '';
+                for (const subject of subjectsData.subjects) {
+                    const option = document.createElement('option');
+                    option.value = subject;
+                    option.textContent = subject;
+                    subjectSelect.appendChild(option);
+                }
+            } catch (err) {
+                console.error('Failed to load subjects', err);
+            }
+        }
+
+        // ===== Streaming =====
+
+        function setStatus(text, live) {
+            document.getElementById('status-text').textContent = text;
+            document.getElementById('status-dot').classList.toggle('live', !!live);
+        }
+
+        function connectStream(subject, event) {
+            disconnectStream();
+            ws = new WebSocket(`${WS_BASE}/ws/eeg/${subject}/${event}`);
+
+            ws.onopen = () => setStatus('Streaming', true);
+            ws.onmessage = (msg) => {
+                const data = JSON.parse(msg.data);
+                if (data.type === 'amplitudes') {
+                    updateElectrodeColors(data.values);
+                    updateClassificationDisplay(data.classification);
+                    document.getElementById('metric-channels').textContent = data.values.length;
+                } else if (data.type === 'error') {
+                    setStatus('Error: ' + data.message, false);
+                }
+            };
+            ws.onclose = () => {
+                if (playing) setStatus('Reconnecting...', false);
+            };
+            ws.onerror = () => setStatus('Connection error', false);
+        }
+
+        function disconnectStream() {
+            if (ws) {
+                ws.onclose = null;
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function startPlayback() {
+            const subject = document.getElementById('subject-select').value;
+            const event = document.getElementById('event-select').value;
+            if (!subject || !event) return;
+            playing = true;
+            const btn = document.getElementById('btn-play');
+            btn.textContent = 'Stop Stream';
+            btn.classList.add('playing');
+            setStatus('Connecting...', false);
+            connectStream(subject, event);
+        }
+
+        function stopPlayback() {
+            playing = false;
+            const btn = document.getElementById('btn-play');
+            btn.textContent = 'Start Stream';
+            btn.classList.remove('playing');
+            disconnectStream();
+            setStatus('Idle', false);
+        }
+
+        // ===== Init =====
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initScene();
+            try {
+                await loadElectrodePositions();
+            } catch (err) {
+                console.error(err);
+                setStatus('Failed to load electrodes', false);
+            }
+            await populateDropdowns();
+
+            document.getElementById('btn-play').addEventListener('click', () => {
+                if (playing) {
+                    stopPlayback();
+                } else {
+                    startPlayback();
+                }
+            });
+
+            document.getElementById('subject-select').addEventListener('change', () => {
+                if (playing) startPlayback();
+            });
+            document.getElementById('event-select').addEventListener('change', () => {
+                if (playing) startPlayback();
+            });
+        });
+    </script>
+</body>
+</html>
